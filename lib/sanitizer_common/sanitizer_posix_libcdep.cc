@@ -83,7 +83,11 @@ static void setlim(int res, rlim_t lim) {
   rlim.rlim_max = lim;
   if (setrlimit(res, const_cast<struct rlimit *>(&rlim))) {
     Report("ERROR: %s setrlimit() failed %d\n", SanitizerToolName, errno);
+#ifndef __bgq__
+    // Don't consider this to be fatal on the BG/Q because many setrlimit types
+    // are not supported.
     Die();
+#endif
   }
 }
 
@@ -134,7 +138,13 @@ int Atexit(void (*function)(void)) {
 }
 
 bool SupportsColoredOutput(fd_t fd) {
+#ifdef __bg__
+  // On a BlueGene the output is always available only via redirected files
+  // (even if the program appears to have terminal output).
+  return false;
+#else
   return isatty(fd) != 0;
+#endif
 }
 
 #ifndef SANITIZER_GO

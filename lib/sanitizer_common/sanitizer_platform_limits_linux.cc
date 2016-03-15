@@ -39,6 +39,10 @@
 #define gid_t __kernel_gid_t
 #define off_t __kernel_off_t
 // This header seems to contain the definitions of _kernel_ stat* structs.
+#ifdef __powerpc64__
+#include <sys/types.h>
+#define __old_kernel_stat stat
+#endif
 #include <asm/stat.h>
 #undef ino_t
 #undef mode_t

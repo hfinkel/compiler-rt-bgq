@@ -39,6 +39,10 @@ void CommonFlags::SetDefaults() {
 #define COMMON_FLAG(Type, Name, DefaultValue, Description) Name = DefaultValue;
 #include "sanitizer_flags.inc"
 #undef COMMON_FLAG
+
+#ifdef __bgq__
+  use_sigaltstack = false;
+#endif
 }
 
 void CommonFlags::CopyFrom(const CommonFlags &other) {
