@@ -61,10 +61,6 @@ else()
   set(COMPILER_RT_TEST_COMPILER_ID GNU)
 endif()
 
-if ("${COMPILER_RT_DEFAULT_TARGET_ABI}" STREQUAL "androideabi")
-  set(ANDROID 1)
-endif()
-
 string(TOLOWER ${CMAKE_SYSTEM_NAME} COMPILER_RT_OS_DIR)
 set(COMPILER_RT_LIBRARY_OUTPUT_DIR
   ${COMPILER_RT_OUTPUT_DIR}/lib/${COMPILER_RT_OS_DIR})
@@ -106,6 +102,10 @@ macro(test_targets)
       # Add this flag into the host build if this is clang-cl.
       if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         append("${MSVC_VERSION_FLAG}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      elseif (COMPILER_RT_TEST_COMPILER_ID MATCHES "Clang")
+        # Add this flag to test compiles to suppress clang's auto-detection
+        # logic.
+        append("${MSVC_VERSION_FLAG}" COMPILER_RT_TEST_COMPILER_CFLAGS)
       endif()
     endif()
   endif()
@@ -126,9 +126,9 @@ macro(test_targets)
         test_target_arch(i386 __i386__ "-m32")
       else()
         if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-          test_target_arch(i386 "" "${MSVC_VERSION_FLAG}")
+          test_target_arch(i386 "" "")
         else()
-          test_target_arch(x86_64 "" "${MSVC_VERSION_FLAG}")
+          test_target_arch(x86_64 "" "")
         endif()
       endif()
     elseif("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "powerpc")

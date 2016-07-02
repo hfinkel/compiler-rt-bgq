@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "sanitizer_common.h"
+#include "sanitizer_allocator_interface.h"
 #include "sanitizer_allocator_internal.h"
 #include "sanitizer_flags.h"
 #include "sanitizer_libc.h"
@@ -24,13 +25,7 @@ namespace __sanitizer {
 const char *SanitizerToolName = "SanitizerTool";
 
 atomic_uint32_t current_verbosity;
-
-uptr GetPageSizeCached() {
-  static uptr PageSize;
-  if (!PageSize)
-    PageSize = GetPageSize();
-  return PageSize;
-}
+uptr PageSizeCached;
 
 StaticSpinMutex report_file_mu;
 ReportFile report_file = {&report_file_mu, kStderrFd, "", "", 0};
@@ -421,6 +416,44 @@ void PrintCmdline() {
   Printf("\n\n");
 }
 
+// Malloc hooks.
+static const int kMaxMallocFreeHooks = 5;
+struct MallocFreeHook {
+  void (*malloc_hook)(const void *, uptr);
+  void (*free_hook)(const void *);
+};
+
+static MallocFreeHook MFHooks[kMaxMallocFreeHooks];
+
+void RunMallocHooks(const void *ptr, uptr size) {
+  for (int i = 0; i < kMaxMallocFreeHooks; i++) {
+    auto hook = MFHooks[i].malloc_hook;
+    if (!hook) return;
+    hook(ptr, size);
+  }
+}
+
+void RunFreeHooks(const void *ptr) {
+  for (int i = 0; i < kMaxMallocFreeHooks; i++) {
+    auto hook = MFHooks[i].free_hook;
+    if (!hook) return;
+    hook(ptr);
+  }
+}
+
+static int InstallMallocFreeHooks(void (*malloc_hook)(const void *, uptr),
+                                  void (*free_hook)(const void *)) {
+  if (!malloc_hook || !free_hook) return 0;
+  for (int i = 0; i < kMaxMallocFreeHooks; i++) {
+    if (MFHooks[i].malloc_hook == nullptr) {
+      MFHooks[i].malloc_hook = malloc_hook;
+      MFHooks[i].free_hook = free_hook;
+      return i + 1;
+    }
+  }
+  return 0;
+}
+
 } // namespace __sanitizer
 
 using namespace __sanitizer;  // NOLINT
@@ -442,5 +475,12 @@ void __sanitizer_report_error_summary(const char *error_summary) {
 SANITIZER_INTERFACE_ATTRIBUTE
 void __sanitizer_set_death_callback(void (*callback)(void)) {
   SetUserDieCallback(callback);
+}
+
+SANITIZER_INTERFACE_ATTRIBUTE
+int __sanitizer_install_malloc_and_free_hooks(void (*malloc_hook)(const void *,
+                                                                  uptr),
+                                              void (*free_hook)(const void *)) {
+  return InstallMallocFreeHooks(malloc_hook, free_hook);
 }
 } // extern "C"
