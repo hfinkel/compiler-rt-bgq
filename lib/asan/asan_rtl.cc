@@ -33,6 +33,7 @@
 #include "ubsan/ubsan_platform.h"
 
 int __asan_option_detect_stack_use_after_return;  // Global interface symbol.
+int __asan_option_detect_stack_use_after_scope;  // Global interface symbol.
 uptr *__asan_test_only_reported_buggy_pointer;  // Used only for testing asan.
 
 namespace __asan {
@@ -420,6 +421,8 @@ static void AsanInitInternal() {
   SetCanPoisonMemory(flags()->poison_heap);
   SetMallocContextSize(common_flags()->malloc_context_size);
 
+  InitializePlatformExceptionHandlers();
+
   InitializeHighMemEnd();
 
   // Make sure we are not statically linked.
@@ -432,9 +435,11 @@ static void AsanInitInternal() {
 
   __sanitizer_set_report_path(common_flags()->log_path);
 
-  // Enable UAR detection, if required.
   __asan_option_detect_stack_use_after_return =
       flags()->detect_stack_use_after_return;
+
+  __asan_option_detect_stack_use_after_scope =
+      flags()->detect_stack_use_after_scope;
 
   // Re-exec ourselves if we need to set additional env or command line args.
   MaybeReexec();
