@@ -38,6 +38,7 @@
 #include <sys/mman.h>
 #if SANITIZER_LINUX
 #include <sys/personality.h>
+#include <setjmp.h>
 #endif
 #include <sys/syscall.h>
 #include <sys/socket.h>
@@ -65,6 +66,10 @@
 #if SANITIZER_FREEBSD
 extern "C" void *__libc_stack_end;
 void *__libc_stack_end = 0;
+#endif
+
+#if SANITIZER_LINUX && defined(__aarch64__)
+void InitializeGuardPtr() __attribute__((visibility("hidden")));
 #endif
 
 namespace __tsan {
@@ -208,9 +213,9 @@ void InitializePlatformEarly() {
   vmaSize =
     (MostSignificantSetBitIndex(GET_CURRENT_FRAME()) + 1);
 #if defined(__aarch64__)
-  if (vmaSize != 39 && vmaSize != 42) {
+  if (vmaSize != 39 && vmaSize != 42 && vmaSize != 48) {
     Printf("FATAL: ThreadSanitizer: unsupported VMA range\n");
-    Printf("FATAL: Found %d - Supported 39 and 42\n", vmaSize);
+    Printf("FATAL: Found %d - Supported 39, 42 and 48\n", vmaSize);
     Die();
   }
 #elif defined(__powerpc64__)
@@ -264,6 +269,8 @@ void InitializePlatform() {
       CHECK_NE(personality(old_personality | ADDR_NO_RANDOMIZE), -1);
       reexec = true;
     }
+    // Initialize the guard pointer used in {sig}{set,long}jump.
+    InitializeGuardPtr();
 #endif
     if (reexec)
       ReExec();
