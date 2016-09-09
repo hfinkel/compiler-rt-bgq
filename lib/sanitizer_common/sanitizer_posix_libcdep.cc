@@ -132,6 +132,7 @@ void SleepForMillis(int millis) {
 }
 
 void Abort() {
+#ifndef SANITIZER_GO
   // If we are handling SIGABRT, unhandle it first.
   if (IsHandledDeadlySignal(SIGABRT)) {
     struct sigaction sigact;
@@ -139,6 +140,7 @@ void Abort() {
     sigact.sa_sigaction = (sa_sigaction_t)SIG_DFL;
     internal_sigaction(SIGABRT, &sigact, nullptr);
   }
+#endif
 
   abort();
 }
