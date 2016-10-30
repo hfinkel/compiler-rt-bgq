@@ -426,6 +426,7 @@ if (APPLE)
   darwin_add_builtin_libraries(${BUILTIN_SUPPORTED_OS})
 else ()
   set(BUILTIN_CFLAGS "")
+
   append_list_if(COMPILER_RT_HAS_STD_C99_FLAG -std=gnu99 BUILTIN_CFLAGS)
 
   # These flags would normally be added to CMAKE_C_FLAGS by the llvm
@@ -438,6 +439,10 @@ else ()
       append_list_if(COMPILER_RT_HAS_OMIT_FRAME_POINTER_FLAG -fomit-frame-pointer BUILTIN_CFLAGS)
     endif()
   endif()
+
+  set(BUILTIN_DEFS "")
+
+  append_list_if(COMPILER_RT_HAS_VISIBILITY_HIDDEN_FLAG VISIBILITY_HIDDEN BUILTIN_DEFS)
 
   foreach (arch ${BUILTIN_SUPPORTED_ARCH})
     if (CAN_TARGET_${arch})
@@ -452,10 +457,17 @@ else ()
         endif ()
       endforeach ()
 
+      # Needed for clear_cache on debug mode, due to r7's usage in inline asm.
+      # Release mode already sets it via -O2/3, Debug mode doesn't.
+      if (${arch} STREQUAL "armhf")
+        list(APPEND BUILTIN_CFLAGS -fomit-frame-pointer)
+      endif()
+
       add_compiler_rt_runtime(clang_rt.builtins
                               STATIC
                               ARCHS ${arch}
                               SOURCES ${${arch}_SOURCES}
+                              DEFS ${BUILTIN_DEFS}
                               CFLAGS ${BUILTIN_CFLAGS}
                               PARENT_TARGET builtins)
     endif ()

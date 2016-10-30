@@ -132,7 +132,7 @@ void SleepForMillis(int millis) {
 }
 
 void Abort() {
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   // If we are handling SIGABRT, unhandle it first.
   if (IsHandledDeadlySignal(SIGABRT)) {
     struct sigaction sigact;
@@ -146,7 +146,7 @@ void Abort() {
 }
 
 int Atexit(void (*function)(void)) {
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   return atexit(function);
 #else
   return 0;
@@ -163,7 +163,7 @@ bool SupportsColoredOutput(fd_t fd) {
 #endif
 }
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 // TODO(glider): different tools may require different altstack size.
 static const uptr kAltStackSize = SIGSTKSZ * 4;  // SIGSTKSZ is not enough.
 
