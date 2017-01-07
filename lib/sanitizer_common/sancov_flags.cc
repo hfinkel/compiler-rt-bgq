@@ -15,8 +15,8 @@
 #include "sanitizer_flag_parser.h"
 #include "sanitizer_platform.h"
 
-#if SANITIZER_WINDOWS
-// Windows doesn't have weak symbols.
+#if !SANITIZER_LINUX
+// other platforms do not have weak symbols out of the box.
 extern "C" const char* __sancov_default_options() { return ""; }
 #endif
 

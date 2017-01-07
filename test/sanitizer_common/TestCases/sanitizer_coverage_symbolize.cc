@@ -1,8 +1,7 @@
 // Tests trace pc guard coverage collection.
 //
-// REQUIRES: has_sancovcc,stable-runtime
-// XFAIL: tsan,darwin
-// TODO: this will fail on powerpc64,s390x once sancov will be called.
+// REQUIRES: x86_64-linux
+// XFAIL: tsan
 //
 // RUN: DIR=%t_workdir
 // RUN: rm -rf $DIR
