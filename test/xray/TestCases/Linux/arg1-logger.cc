@@ -9,7 +9,9 @@
 // RUN: rm arg1-logger-*
 //
 // At the time of writing, the ARM trampolines weren't written yet.
-// XFAIL: arm || aarch64
+// XFAIL: arm || aarch64 || mips
+// See the mailing list discussion of r296998.
+// UNSUPPORTED: powerpc64le
 
 #include "xray/xray_interface.h"
 
