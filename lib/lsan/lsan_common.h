@@ -118,6 +118,15 @@ typedef InternalMmapVector<uptr> Frontier;
 void InitializePlatformSpecificModules();
 void ProcessGlobalRegions(Frontier *frontier);
 void ProcessPlatformSpecificAllocations(Frontier *frontier);
+
+struct RootRegion {
+  uptr begin;
+  uptr size;
+};
+
+InternalMmapVector<RootRegion> const *GetRootRegions();
+void ScanRootRegion(Frontier *frontier, RootRegion const &region,
+                    uptr region_begin, uptr region_end, uptr prot);
 // Run stoptheworld while holding any platform-specific locks.
 void DoStopTheWorld(StopTheWorldCallback callback, void* argument);
 
@@ -212,6 +221,10 @@ uptr PointsIntoChunk(void *p);
 uptr GetUserBegin(uptr chunk);
 // Helper for __lsan_ignore_object().
 IgnoreObjectResult IgnoreObjectLocked(const void *p);
+
+// Return the linker module, if valid for the platform.
+LoadedModule *GetLinker();
+
 // Wrapper for chunk metadata operations.
 class LsanMetadata {
  public:
