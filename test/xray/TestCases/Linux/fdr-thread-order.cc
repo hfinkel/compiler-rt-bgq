@@ -31,11 +31,11 @@ int main(int argc, char *argv[]) {
   t2.join();
   __xray_log_finalize();
   __xray_log_flushLog();
-  // CHECK: =={{[0-9]+}}==XRay: Log file in '{{.*}}'
+  // CHECK: {{.*}}XRay: Log file in '{{.*}}'
 }
 
 // We want to make sure that the order of the function log doesn't matter.
 // TRACE-DAG: - { type: 0, func-id: [[FID1:[0-9]+]], function: {{.*f1.*}}, cpu: {{.*}}, thread: [[THREAD1:[0-9]+]], kind: function-enter, tsc: {{[0-9]+}} }
 // TRACE-DAG: - { type: 0, func-id: [[FID2:[0-9]+]], function: {{.*f2.*}}, cpu: {{.*}}, thread: [[THREAD2:[0-9]+]], kind: function-enter, tsc: {{[0-9]+}} }
-// TRACE-DAG: - { type: 0, func-id: [[FID1]], function: {{.*f1.*}}, cpu: {{.*}}, thread: [[THREAD1]], kind: function-exit, tsc: {{[0-9]+}} }
-// TRACE-DAG: - { type: 0, func-id: [[FID2]], function: {{.*f2.*}}, cpu: {{.*}}, thread: [[THREAD2]], kind: function-exit, tsc: {{[0-9]+}} }
+// TRACE-DAG: - { type: 0, func-id: [[FID1]], function: {{.*f1.*}}, cpu: {{.*}}, thread: [[THREAD1]], kind: {{function-exit|function-tail-exit}}, tsc: {{[0-9]+}} }
+// TRACE-DAG: - { type: 0, func-id: [[FID2]], function: {{.*f2.*}}, cpu: {{.*}}, thread: [[THREAD2]], kind: {{function-exit|function-tail-exit}}, tsc: {{[0-9]+}} }

@@ -13,6 +13,7 @@
 #include "tsan_report.h"
 #include "tsan_platform.h"
 #include "tsan_rtl.h"
+#include "sanitizer_common/sanitizer_file.h"
 #include "sanitizer_common/sanitizer_placement_new.h"
 #include "sanitizer_common/sanitizer_report_decorator.h"
 #include "sanitizer_common/sanitizer_stacktrace_printer.h"
@@ -38,18 +39,11 @@ ReportLocation *ReportLocation::New(ReportLocationType type) {
 class Decorator: public __sanitizer::SanitizerCommonDecorator {
  public:
   Decorator() : SanitizerCommonDecorator() { }
-  const char *Warning()    { return Red(); }
-  const char *EndWarning() { return Default(); }
   const char *Access()     { return Blue(); }
-  const char *EndAccess()  { return Default(); }
   const char *ThreadDescription()    { return Cyan(); }
-  const char *EndThreadDescription() { return Default(); }
   const char *Location()   { return Green(); }
-  const char *EndLocation() { return Default(); }
   const char *Sleep()   { return Yellow(); }
-  const char *EndSleep() { return Default(); }
   const char *Mutex()   { return Magenta(); }
-  const char *EndMutex() { return Default(); }
 };
 
 ReportDesc::ReportDesc()
@@ -92,7 +86,8 @@ static const char *ReportTypeString(ReportType typ, uptr tag) {
   if (typ == ReportTypeVptrUseAfterFree)
     return "heap-use-after-free (virtual call vs free)";
   if (typ == ReportTypeExternalRace) {
-    return GetReportHeaderFromTag(tag) ?: "race on external object";
+    const char *str = GetReportHeaderFromTag(tag);
+    return str ? str : "race on external object";
   }
   if (typ == ReportTypeThreadLeak)
     return "thread leak";
@@ -170,15 +165,16 @@ static void PrintMop(const ReportMop *mop, bool first) {
            MopDesc(first, mop->write, mop->atomic), mop->size,
            (void *)mop->addr, thread_name(thrbuf, mop->tid));
   } else {
-    const char *object_type =
-        GetObjectTypeFromTag(mop->external_tag) ?: "external object";
+    const char *object_type = GetObjectTypeFromTag(mop->external_tag);
+    if (object_type == nullptr)
+        object_type = "external object";
     Printf("  %s access of %s at %p by %s",
            ExternalMopDesc(first, mop->write), object_type,
            (void *)mop->addr, thread_name(thrbuf, mop->tid));
   }
   PrintMutexSet(mop->mset);
   Printf(":\n");
-  Printf("%s", d.EndAccess());
+  Printf("%s", d.Default());
   PrintStack(mop->stack);
 }
 
@@ -219,20 +215,20 @@ static void PrintLocation(const ReportLocation *loc) {
         loc->fd, thread_name(thrbuf, loc->tid));
     print_stack = true;
   }
-  Printf("%s", d.EndLocation());
+  Printf("%s", d.Default());
   if (print_stack)
     PrintStack(loc->stack);
 }
 
 static void PrintMutexShort(const ReportMutex *rm, const char *after) {
   Decorator d;
-  Printf("%sM%zd%s%s", d.Mutex(), rm->id, d.EndMutex(), after);
+  Printf("%sM%zd%s%s", d.Mutex(), rm->id, d.Default(), after);
 }
 
 static void PrintMutexShortWithAddress(const ReportMutex *rm,
                                        const char *after) {
   Decorator d;
-  Printf("%sM%zd (%p)%s%s", d.Mutex(), rm->id, rm->addr, d.EndMutex(), after);
+  Printf("%sM%zd (%p)%s%s", d.Mutex(), rm->id, rm->addr, d.Default(), after);
 }
 
 static void PrintMutex(const ReportMutex *rm) {
@@ -240,11 +236,11 @@ static void PrintMutex(const ReportMutex *rm) {
   if (rm->destroyed) {
     Printf("%s", d.Mutex());
     Printf("  Mutex M%llu is already destroyed.\n\n", rm->id);
-    Printf("%s", d.EndMutex());
+    Printf("%s", d.Default());
   } else {
     Printf("%s", d.Mutex());
     Printf("  Mutex M%llu (%p) created at:\n", rm->id, rm->addr);
-    Printf("%s", d.EndMutex());
+    Printf("%s", d.Default());
     PrintStack(rm->stack);
   }
 }
@@ -262,7 +258,7 @@ static void PrintThread(const ReportThread *rt) {
   if (rt->workerthread) {
     Printf(" (tid=%zu, %s) is a GCD worker thread\n", rt->os_id, thread_status);
     Printf("\n");
-    Printf("%s", d.EndThreadDescription());
+    Printf("%s", d.Default());
     return;
   }
   Printf(" (tid=%zu, %s) created by %s", rt->os_id, thread_status,
@@ -270,7 +266,7 @@ static void PrintThread(const ReportThread *rt) {
   if (rt->stack)
     Printf(" at:");
   Printf("\n");
-  Printf("%s", d.EndThreadDescription());
+  Printf("%s", d.Default());
   PrintStack(rt->stack);
 }
 
@@ -278,7 +274,7 @@ static void PrintSleep(const ReportStack *s) {
   Decorator d;
   Printf("%s", d.Sleep());
   Printf("  As if synchronized via sleep:\n");
-  Printf("%s", d.EndSleep());
+  Printf("%s", d.Default());
   PrintStack(s);
 }
 
@@ -322,7 +318,7 @@ void PrintReport(const ReportDesc *rep) {
   Printf("%s", d.Warning());
   Printf("WARNING: ThreadSanitizer: %s (pid=%d)\n", rep_typ_str,
          (int)internal_getpid());
-  Printf("%s", d.EndWarning());
+  Printf("%s", d.Default());
 
   if (rep->typ == ReportTypeDeadlock) {
     char thrbuf[kThreadBufSize];
@@ -340,7 +336,7 @@ void PrintReport(const ReportDesc *rep) {
       PrintMutexShort(rep->mutexes[i], " in ");
       Printf("%s", d.ThreadDescription());
       Printf("%s:\n", thread_name(thrbuf, rep->unique_tids[i]));
-      Printf("%s", d.EndThreadDescription());
+      Printf("%s", d.Default());
       if (flags()->second_deadlock_stack) {
         PrintStack(rep->stacks[2*i]);
         Printf("  Mutex ");

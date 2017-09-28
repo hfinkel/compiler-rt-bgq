@@ -142,6 +142,10 @@ void ThreadContext::OnFinished() {
 
   if (common_flags()->detect_deadlocks)
     ctx->dd->DestroyLogicalThread(thr->dd_lt);
+  thr->clock.ResetCached(&thr->proc()->clock_cache);
+#if !SANITIZER_GO
+  thr->last_sleep_clock.ResetCached(&thr->proc()->clock_cache);
+#endif
   thr->~ThreadState();
 #if TSAN_COLLECT_STATS
   StatAggregate(ctx->stat, thr->stat);
@@ -345,6 +349,7 @@ void MemoryAccessRange(ThreadState *thr, uptr pc, uptr addr,
   StatInc(thr, StatMopRange);
 
   if (*shadow_mem == kShadowRodata) {
+    DCHECK(!is_write);
     // Access to .rodata section, no races here.
     // Measurements show that it can be 10-20% of all memory accesses.
     StatInc(thr, StatMopRangeRodata);

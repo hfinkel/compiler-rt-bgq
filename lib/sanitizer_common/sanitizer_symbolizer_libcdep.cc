@@ -17,6 +17,18 @@
 
 namespace __sanitizer {
 
+Symbolizer *Symbolizer::GetOrInit() {
+  SpinMutexLock l(&init_mu_);
+  if (symbolizer_)
+    return symbolizer_;
+  symbolizer_ = PlatformInit();
+  CHECK(symbolizer_);
+  return symbolizer_;
+}
+
+// See sanitizer_symbolizer_fuchsia.cc.
+#if !SANITIZER_FUCHSIA
+
 const char *ExtractToken(const char *str, const char *delims, char **result) {
   uptr prefix_len = internal_strcspn(str, delims);
   *result = (char*)InternalAlloc(prefix_len + 1);
@@ -164,24 +176,16 @@ const LoadedModule *Symbolizer::FindModuleForAddress(uptr address) {
       return &modules_[i];
     }
   }
-  // Reload the modules and look up again, if we haven't tried it yet.
+  // dlopen/dlclose interceptors invalidate the module list, but when
+  // interception is disabled, we need to retry if the lookup fails in
+  // case the module list changed.
+#if !SANITIZER_INTERCEPT_DLOPEN_DLCLOSE
   if (!modules_were_reloaded) {
-    // FIXME: set modules_fresh_ from dlopen()/dlclose() interceptors.
-    // It's too aggressive to reload the list of modules each time we fail
-    // to find a module for a given address.
     modules_fresh_ = false;
     return FindModuleForAddress(address);
   }
+#endif
   return 0;
-}
-
-Symbolizer *Symbolizer::GetOrInit() {
-  SpinMutexLock l(&init_mu_);
-  if (symbolizer_)
-    return symbolizer_;
-  symbolizer_ = PlatformInit();
-  CHECK(symbolizer_);
-  return symbolizer_;
 }
 
 // For now we assume the following protocol:
@@ -451,7 +455,7 @@ bool SymbolizerProcess::ReadFromSymbolizer(char *buffer, uptr max_length) {
     if (ReachedEndOfOutput(buffer, read_len))
       break;
     if (read_len + 1 == max_length) {
-      Report("WARNING: Symbolizer buffer too small");
+      Report("WARNING: Symbolizer buffer too small\n");
       read_len = 0;
       break;
     }
@@ -471,5 +475,7 @@ bool SymbolizerProcess::WriteToSymbolizer(const char *buffer, uptr length) {
   }
   return true;
 }
+
+#endif  // !SANITIZER_FUCHSIA
 
 }  // namespace __sanitizer

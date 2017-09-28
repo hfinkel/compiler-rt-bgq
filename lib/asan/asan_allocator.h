@@ -119,7 +119,11 @@ struct AsanMapUnmapCallback {
 };
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
-# if defined(__powerpc64__)
+# if SANITIZER_FUCHSIA
+const uptr kAllocatorSpace = ~(uptr)0;
+const uptr kAllocatorSize  =  0x40000000000ULL;  // 4T.
+typedef DefaultSizeClassMap SizeClassMap;
+# elif defined(__powerpc64__)
 const uptr kAllocatorSpace =  0xa0000000000ULL;
 const uptr kAllocatorSize  =  0x20000000000ULL;  // 2T.
 typedef DefaultSizeClassMap SizeClassMap;
@@ -212,8 +216,6 @@ void asan_mz_force_unlock();
 
 void PrintInternalAllocatorStats();
 void AsanSoftRssLimitExceededCallback(bool exceeded);
-
-AsanAllocator &get_allocator();
 
 }  // namespace __asan
 #endif  // ASAN_ALLOCATOR_H

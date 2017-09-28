@@ -118,6 +118,10 @@ void InitializeFlags() {
   const char *ubsan_default_options = __ubsan::MaybeCallUbsanDefaultOptions();
   ubsan_parser.ParseString(ubsan_default_options);
 #endif
+#if CAN_SANITIZE_LEAKS
+  const char *lsan_default_options = __lsan::MaybeCallLsanDefaultOptions();
+  lsan_parser.ParseString(lsan_default_options);
+#endif
 
   // Override from command line.
   asan_parser.ParseString(GetEnv("ASAN_OPTIONS"));
@@ -193,6 +197,10 @@ void InitializeFlags() {
   if (!f->replace_str && common_flags()->intercept_strchr) {
     Report("WARNING: strchr* interceptors are enabled even though "
            "replace_str=0. Use intercept_strchr=0 to disable them.");
+  }
+  if (!f->replace_str && common_flags()->intercept_strndup) {
+    Report("WARNING: strndup* interceptors are enabled even though "
+           "replace_str=0. Use intercept_strndup=0 to disable them.");
   }
 }
 
